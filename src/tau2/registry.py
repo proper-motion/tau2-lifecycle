@@ -348,6 +348,10 @@ try:
         "telecom-workflow",
         get_task_splits=telecom_domain_get_tasks_split,
     )
+    # Lifecycle fork: the only upstream change (D13 amended, OV9).
+    from tau2.lifecycle.telecom_ext import get_environment as _lifecycle_env
+
+    registry.register_domain(_lifecycle_env, "telecom_lifecycle")
 
     registry.register_domain(knowledge_domain_get_environment, "banking_knowledge")
     registry.register_tasks(knowledge_domain_get_tasks, "banking_knowledge")

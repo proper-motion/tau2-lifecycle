@@ -28,6 +28,8 @@ TEMPLATE_LINE_ID = "L1002"
 TEMPLATE_NAME = "John Smith"
 DEFAULT_PLAN_ID = "P1002"
 PERSONA_LEVELS = ("None", "Easy", "Hard")
+BILLING_CYCLE_DAYS = 30
+CREDIT_YEAR_DAYS = 365
 _NETWORK_SEARCH = EnvFunctionCall(
     env_type="user", func_name="simulate_network_search", arguments={}
 )
@@ -252,7 +254,23 @@ def project_state(conn: sqlite3.Connection, branch: str, day: int) -> dict:
             state["account_status"] = p["status"]
         elif etype == "churned":
             state["churned"] = True
+        elif etype == "goodwill_credit_applied" and vday // CREDIT_YEAR_DAYS == (
+            day // CREDIT_YEAR_DAYS
+        ):
+            state["goodwill_credits_this_year"] = (
+                state.get("goodwill_credits_this_year", 0.0) + p["amount"]
+            )
         state["history"].append({"day": vday, "type": etype})
+    # Billing cycle (D6/OV5): usage resets every 30 days, never on a plan change.
+    # ponytail: no usage growth model yet, so after the first reset usage stays 0.
+    if day >= BILLING_CYCLE_DAYS:
+        state["data_used_gb"] = 0.0
+        state["data_refueling_gb"] = 0.0
+    # Template customer starts the year with 25.0 used; the counter resets yearly.
+    base_credit = _template_customer()["goodwill_credit_used_this_year"]
+    state["goodwill_credit_used_this_year"] = (
+        base_credit if day < CREDIT_YEAR_DAYS else 0.0
+    ) + state.pop("goodwill_credits_this_year", 0.0)
     return state
 
 
@@ -262,6 +280,12 @@ def project_state(conn: sqlite3.Connection, branch: str, day: int) -> dict:
 @lru_cache(maxsize=1)
 def _base_db() -> dict:
     return TelecomDB.load(TELECOM_DB_PATH).model_dump(mode="json")
+
+
+def _template_customer() -> dict:
+    return next(
+        c for c in _base_db()["customers"] if c["customer_id"] == TEMPLATE_CUSTOMER_ID
+    )
 
 
 def instantiate_task(template: Task, state: dict) -> Task:
@@ -286,13 +310,19 @@ def instantiate_task(template: Task, state: dict) -> Task:
             "date_of_birth": state["date_of_birth"],
             "email": state["email"],
             "account_status": state["account_status"],
+            "goodwill_credit_used_this_year": state.get(
+                "goodwill_credit_used_this_year", c["goodwill_credit_used_this_year"]
+            ),
         }
         if c["customer_id"] == TEMPLATE_CUSTOMER_ID
         else c
         for c in db["customers"]
     ]
+    usage = {k: state[k] for k in ("data_used_gb", "data_refueling_gb") if k in state}
     lines = [
-        {**ln, "plan_id": state["plan_id"]} if ln["line_id"] == TEMPLATE_LINE_ID else ln
+        {**ln, "plan_id": state["plan_id"], **usage}
+        if ln["line_id"] == TEMPLATE_LINE_ID
+        else ln
         for ln in db["lines"]
     ]
     init = data.get("initial_state") or {}
@@ -303,7 +333,7 @@ def instantiate_task(template: Task, state: dict) -> Task:
     return Task.model_validate(data)
 
 
-def check_applicable(task: Task) -> Optional[str]:
+def check_applicable(task: Task, env_factory=get_environment) -> Optional[str]:
     """None if the gold path still solves `task`; otherwise the reason it doesn't.
 
     Replays gold actions on a fresh environment, lets the user's phone re-scan
@@ -311,7 +341,7 @@ def check_applicable(task: Task) -> Optional[str]:
     every env assertion. A few upstream templates fail this check unmodified;
     `choose_task` never uses those.
     """
-    env = get_environment()
+    env = env_factory()
     init = task.initial_state
     env.set_state(
         initialization_data=init.initialization_data if init else None,
