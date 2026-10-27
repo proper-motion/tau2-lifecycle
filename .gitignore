@@ -224,3 +224,6 @@ data/simulations/.credentials/
 
 # Cursor IDE
 .cursor/
+
+# lifecycle campaign outputs (ledgers, transcripts, exports)
+runs/
