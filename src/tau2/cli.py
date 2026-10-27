@@ -679,6 +679,13 @@ def main():
         subparsers.add_parser("judges", help="Saved-run diagnostic judging and reports")
     )
 
+    # Lifecycle fork: the only CLI change (D13 amended).
+    from tau2.lifecycle.cli import add_lifecycle_args
+
+    add_lifecycle_args(
+        subparsers.add_parser("lifecycle", help="Customer lifecycle campaigns")
+    )
+
     from tau2.config import DEFAULT_TASK_SUBSET_SEED, DEFAULT_TASK_SUBSET_SIZE
     from tau2.multilingual.factory.cli import add_factory_args
     from tau2.task_subsets.cli import add_tasks_args

@@ -52,6 +52,7 @@ class HazardConfig(BaseModel):
     p_return_after_fail: float = 0.6  # scaled by (1 - patience)
     suppression_days: int = 30  # OV2: accepted offer suppresses cancel intent
     usage_every_days: int = 7
+    organic_contacts_per_30d: float = 1.0  # support issues unrelated to churn
 
 
 class ConversationOutcome(BaseModel):
@@ -115,7 +116,7 @@ def record_conversation(
             day,
             f"{cid}:conversation",
             "conversation",
-            outcome.model_dump(exclude={"transcript"}),
+            outcome.model_dump(),
         ),
     ]
 
@@ -194,8 +195,10 @@ def record_conversation(
     # CSAT: forced to 1 when the agent blocked what the customer asked for or the
     # call broke; otherwise the customer-perspective LLM rater decides.
     csat, comment, pending = None, "", False
-    if outcome.infra_error or intent_outcome in ("cancel_blocked", "change_blocked"):
+    if intent_outcome in ("cancel_blocked", "change_blocked"):
         csat, comment = 1, "forced: request not handled"
+    elif outcome.infra_error:
+        pass  # provider failure: no rating, so outages never become churn signal
     else:
         for _ in range(CSAT_ATTEMPTS):
             try:
@@ -214,7 +217,7 @@ def record_conversation(
                 {"conversation_id": cid, "reason": comment},
             )
         )
-    else:
+    elif csat is not None:
         events.append(
             _ev(
                 branch,
@@ -334,6 +337,10 @@ def daily_tick(
                 1 - traits["patience"]
             ):
                 decision = "support"
+        if decision is None and _rng(seed, pop_id, day, "organic").random() < (
+            cfg.organic_contacts_per_30d / 30
+        ):
+            decision = "support"
     if decision:
         events.append(
             _ev(

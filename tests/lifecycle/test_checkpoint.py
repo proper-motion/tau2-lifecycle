@@ -89,7 +89,9 @@ def test_e2e_accepted_retention_suppresses_cancel_for_30_days(world):
     assert res["intent_outcome"] == "retained"
     state = project_state(conn, b, 6)
     assert not state["churned"] and state["goodwill_credit_used_this_year"] == 45.0
-    angry = HazardConfig(w_price=50.0)  # leave intent is certain unless suppressed
+    angry = HazardConfig(
+        w_price=50.0, organic_contacts_per_30d=0
+    )  # leave intent is certain unless suppressed
     traits = {**c.traits, "price_sensitivity": 0.9}
     for day in range(6, 40):
         daily_tick(conn, b, day, traits, SEED, angry)
@@ -229,3 +231,24 @@ def test_cohort_kpis_count_customers_and_keep_task_success_separate(world):
     assert k["A"]["churn_rate"] == 1.0 and k["A"]["task_success_rate"] == 1.0
     assert k["B"]["churn_rate"] == 1.0 and k["B"]["task_success_rate"] is None
     assert k["B"]["infra_errors"] == 1 and k["B"]["csat_mean"] == 1
+
+
+def test_infra_error_on_a_support_call_gets_no_csat(world):
+    from tau2.lifecycle.checkpoint import ConversationOutcome
+
+    conn, c = world
+    b = branch_id(c.pop_id, "A")
+    out = ConversationOutcome(
+        conversation_id="c1",
+        task_id="t",
+        infra_error=True,
+        plan_id="P1002",
+        line_status="Active",
+        goodwill_used=25.0,
+    )
+    res = record_conversation(conn, b, 1, out, c.traits, lambda o, t: (5, ""))
+    assert res["csat"] is None and not res["pending"]
+    types = [
+        t for (t,) in conn.execute("SELECT type FROM events WHERE branch_id=?", (b,))
+    ]
+    assert "csat" not in types and "csat_pending" not in types

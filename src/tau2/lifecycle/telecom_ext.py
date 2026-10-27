@@ -7,8 +7,11 @@ model decided they want to downgrade, upgrade or cancel.
 See .plans/telecom-lifecycle-tools.md (D2-D5, OV1-OV9).
 """
 
+import hashlib
+from functools import partial
 from typing import Any, Dict, Literal
 
+from tau2.data_model.message import ToolCall, ToolMessage
 from tau2.data_model.tasks import Task
 from tau2.domains.telecom.data_model import AccountStatus, LineStatus, TelecomDB
 from tau2.domains.telecom.environment import TelecomEnvironment
@@ -145,8 +148,47 @@ class LifecycleTelecomTools(TelecomTools):
         }
 
 
-def get_environment(solo_mode: bool = False) -> TelecomEnvironment:
-    """Upstream manual-policy telecom environment with the lifecycle tools and addendum."""
+INJECTED_ERROR = "Error: Service temporarily unavailable. Please try again later."
+
+
+def is_injected(salt: str, tool_call_id: str, failure_rate: float) -> bool:
+    """Deterministic per tool call id, so evaluator replay reproduces the failure."""
+    if failure_rate <= 0:
+        return False
+    h = hashlib.sha256(f"{salt}:{tool_call_id}".encode()).digest()
+    return int.from_bytes(h[:8], "big") / 2**64 < failure_rate
+
+
+class InjectingTelecomEnvironment(TelecomEnvironment):
+    """Fails a share of the agent's tool calls without executing them (D8)."""
+
+    def __init__(self, *args, failure_rate: float = 0.0, salt: str = "", **kwargs):
+        super().__init__(*args, **kwargs)
+        self.failure_rate = failure_rate
+        self.salt = salt
+
+    def get_response(self, message: ToolCall) -> ToolMessage:
+        if message.requestor == "assistant" and is_injected(
+            self.salt, message.id, self.failure_rate
+        ):
+            return ToolMessage(
+                id=message.id,
+                content=self.to_json_str(INJECTED_ERROR),
+                requestor=message.requestor,
+                role="tool",
+                error=True,
+            )
+        return super().get_response(message)
+
+
+def get_environment(
+    solo_mode: bool = False, failure_rate: float = 0.0, salt: str = "", **_
+) -> TelecomEnvironment:
+    """Upstream manual-policy telecom environment with the lifecycle tools and addendum.
+
+    Extra keyword arguments from upstream builders (language settings) are ignored:
+    this domain is English-only.
+    """
     if solo_mode:
         raise NotImplementedError("telecom_lifecycle supports conversational runs only")
     policy = (
@@ -157,12 +199,30 @@ def get_environment(solo_mode: bool = False) -> TelecomEnvironment:
         + load_file(TELECOM_TECH_SUPPORT_POLICY_MANUAL_PATH)
         + "\n</tech_support_policy>"
     )
-    return TelecomEnvironment(
-        domain_name=DOMAIN,
+    return InjectingTelecomEnvironment(
+        domain_name=variant_domain(failure_rate, salt),
         policy=policy,
         tools=LifecycleTelecomTools(TelecomDB.load(TELECOM_DB_PATH)),
         user_tools=TelecomUserTools(TelecomUserDB.load(TELECOM_USER_DB_PATH)),
+        failure_rate=failure_rate,
+        salt=salt,
     )
+
+
+def variant_domain(failure_rate: float, salt: str) -> str:
+    return DOMAIN if failure_rate <= 0 else f"{DOMAIN}@{failure_rate}#{salt}"
+
+
+def register_variant_domain(failure_rate: float, salt: str) -> str:
+    """Register the injecting env under its own name so evaluation rebuilds it."""
+    from tau2.registry import registry
+
+    name = variant_domain(failure_rate, salt)
+    if name not in registry.get_domains():
+        registry.register_domain(
+            partial(get_environment, failure_rate=failure_rate, salt=salt), name
+        )
+    return name
 
 
 # ---------------------------------------------------------------- intent tasks
