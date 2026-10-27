@@ -1,4 +1,4 @@
-# Pilot campaign (PREREGISTRATION.md: Pilot gate). Never used in the experiment.
+# Pilot campaign (PREREGISTRATION.md: Pilot gate, cap $110). Never used in the experiment.
 # Run: doppler run -- uv run tau2 lifecycle run --config src/experiments/orm/configs/pilot.yaml --out runs/pilot
 # Gate: uv run python -m experiments.orm.pilot_gate --run runs/pilot --cutoff 59
 name: pilot-1
@@ -17,7 +17,7 @@ variants:
   - {name: g5-f30, agent_llm: gpt-5-2025-08-07, failure_rate: 0.3}
 user_llm: gpt-4.1-2025-04-14       # simulated customer, same for all variants
 csat_llm: gpt-4.1-mini-2025-04-14  # CSAT rater
-budget_usd: 75.0                   # hard cap (D15)
+budget_usd: 110.0                  # hard cap; raised from D15's $75 (PREREGISTRATION deviation 2)
 cost_bound_usd: 0.40               # reserved per conversation before each day (OV10); one gpt-5 call cost $0.255
 max_concurrency: 8
 max_steps: 100

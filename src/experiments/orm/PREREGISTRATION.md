@@ -83,8 +83,8 @@ conversation × planned conversations × 1.3.
 
 ## Pilot gate (D15, D18)
 
-`pilot_gate.py`, pilot = 30 customers × 9 variants × 60 days, cap $75, at most 2
-re-pilots (each ≤ $75). All must pass before the full run:
+`pilot_gate.py`, pilot = 30 customers × 9 variants × 60 days, cap $110
+(deviation 2), at most 2 re-pilots (each ≤ $110). All must pass before the full run:
 
 - churn-or-downgrade per branch-month in [3%, 10%]
 - 7-day repeat contact in [10%, 30%]
@@ -101,3 +101,8 @@ between pilots and are frozen after the passing pilot.
    share the CSAT rater's biases, which favours the judge on CSAT and, through the
    hazard's CSAT term, slightly on churn. Report this next to any judge result;
    rerun with a non-OpenAI judge before any external claim.
+2. **Pilot cap raised from $75 to $110**, against D15. Decided by Adi on
+   2026-10-27 after a live check: one gpt-5 agent conversation cost $0.255
+   (77 turns), putting the ~800-call pilot at about $85-95. Under $75 the budget
+   guard would stop around day 50, before late churn windows mature. Models
+   unchanged. Re-pilots are capped at $110 each.
