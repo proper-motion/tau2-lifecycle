@@ -1,8 +1,8 @@
 # Preregistration: outcome reward model vs LLM-as-judge
 
-Status: **DRAFT**. Fill every `[FILL]` and commit before the pilot runs. After the
-pilot gate passes, the hazard config hash and full-run size are added and the file
-is frozen (git tag `prereg-v1`) before the full run starts. Later edits are listed
+Status: **DRAFT**. Model choices filled 2026-10-27. After the pilot gate passes,
+the config hash (the one `[FILL]`) and full-run size are added and the file is
+frozen (git tag `prereg-v1`) before the full run starts. Later edits are listed
 under Deviations, never silently.
 
 ## Claim
@@ -17,28 +17,44 @@ or real-customer behavior.
 ## Data
 
 - Campaign: `tau2 lifecycle run`, config hash `[FILL after pilot]`, 9 variants =
-  3 agent models `[FILL]` × tool-failure rate {0, 0.1, 0.3}.
+  3 agent models × tool-failure rate {0, 0.1, 0.3}. Agent models, chosen for a
+  spread in published τ²-bench telecom pass^1 (repo leaderboard data,
+  `web/leaderboard/public/submissions`, checked 2026-10-27):
+  - weak: `gpt-4.1-2025-04-14` (34.0)
+  - mid: `gpt-4.1-mini-2025-04-14` (48.9)
+  - strong: `gpt-5-2025-08-07` (95.8)
+- Simulated customer: `gpt-4.1-2025-04-14` (upstream default user model), the
+  same for every variant. CSAT rater: `gpt-4.1-mini-2025-04-14`.
+- All models pinned to dated snapshots so the run can be repeated.
 - Rows: `tau2 lifecycle export` at the final cutoff. Only mature, non-infra
   conversations. Fields: transcript + labels (`churn_or_downgrade_28d`,
   `repeat_contact_7d`, `csat`). No variant, task, intent, reward or oracle field.
 - Split: `build_dataset.py --seed 13`, by customer: 70/15/15 train/val/test. All
   conversations and variants of a customer share a split.
 - Held-out set (D16): a second campaign with 2 perturbed hazard configs (weights
-  ±30%, one extra hidden trait) and 1 agent model not in training `[FILL]`. Same
+  ±30%, one extra hidden trait) and 1 agent model not in training:
+  `o4-mini-2025-04-16` (published telecom pass^1 50.2, mid strength). Same
   population size as the test split.
 
 ## Arms
 
 | Arm | Input | Notes |
 |---|---|---|
-| `orm` | transcript | `train_orm.py`: `[FILL base model]`, LoRA r=16, 3 heads, best val loss |
-| `judge_zero` | transcript | `judge_baseline.py --arm zero`, model `[FILL]`, family ≠ CSAT rater |
+| `orm` | transcript | `train_orm.py`: `Qwen/Qwen3-4B` @ `1cfa9a72`, `--max-tokens 8192`, LoRA r=16, 3 heads, best val loss |
+| `judge_zero` | transcript | `judge_baseline.py --arm zero`, model `claude-opus-5-5` (Anthropic; CSAT rater is OpenAI) |
 | `judge_few` | transcript + 8 train examples | stratified by churn label, seed 13 |
 | `observable_logistic` | transcript counts | reference |
 | `random` | none | floor |
 | `task_success_ref` | private native reward | reference only, not a competitor |
 
-The best judge arm is the one with the higher validation churn AUROC.
+The best judge arm is the one with the higher validation churn AUROC. Both judge
+arms use `claude-opus-5-5` at temperature 0.
+
+ORM base model rationale: text-only causal LM with 41k context, Apache-2.0,
+works with `AutoModel` in `train_orm.py`. Pilot transcripts are about 1.4k-2.7k
+tokens (live smoke, 2026-10-27), so 8,192 tokens covers them; confirm against
+the pilot's measured p95 before freezing. `Qwen/Qwen3.5-4B` was not chosen: it
+is an image-text model (`Qwen3_5ForConditionalGeneration`).
 
 ## Primary rule (R16)
 

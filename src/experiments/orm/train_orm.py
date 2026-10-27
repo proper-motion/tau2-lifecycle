@@ -43,6 +43,7 @@ def main(argv=None) -> None:  # pragma: no cover - needs a GPU and torch
     ap.add_argument(
         "--base-model", required=True, help="Picked at Phase 4 by p95 trace length"
     )
+    ap.add_argument("--revision", help="Pinned HF commit, from PREREGISTRATION.md")
     ap.add_argument("--max-tokens", type=int, required=True)
     ap.add_argument("--epochs", type=int, default=3)
     ap.add_argument("--lr", type=float, default=1e-4)
@@ -59,11 +60,13 @@ def main(argv=None) -> None:  # pragma: no cover - needs a GPU and torch
 
     torch.manual_seed(args.seed)
     dev = "cuda" if torch.cuda.is_available() else "cpu"
-    tok = AutoTokenizer.from_pretrained(args.base_model)
+    tok = AutoTokenizer.from_pretrained(args.base_model, revision=args.revision)
     tok.padding_side = "left"  # last position = last real token
     if tok.pad_token is None:
         tok.pad_token = tok.eos_token
-    base = AutoModel.from_pretrained(args.base_model, torch_dtype=torch.bfloat16)
+    base = AutoModel.from_pretrained(
+        args.base_model, revision=args.revision, torch_dtype=torch.bfloat16
+    )
     base = get_peft_model(
         base,
         LoraConfig(
