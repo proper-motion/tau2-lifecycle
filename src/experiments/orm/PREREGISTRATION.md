@@ -41,14 +41,14 @@ or real-customer behavior.
 | Arm | Input | Notes |
 |---|---|---|
 | `orm` | transcript | `train_orm.py`: `Qwen/Qwen3-4B` @ `1cfa9a72`, `--max-tokens 8192`, LoRA r=16, 3 heads, best val loss |
-| `judge_zero` | transcript | `judge_baseline.py --arm zero`, model `claude-opus-5-5` (Anthropic; CSAT rater is OpenAI) |
+| `judge_zero` | transcript | `judge_baseline.py --arm zero --allow-same-family`, model `gpt-5.5-2026-04-23` |
 | `judge_few` | transcript + 8 train examples | stratified by churn label, seed 13 |
 | `observable_logistic` | transcript counts | reference |
 | `random` | none | floor |
 | `task_success_ref` | private native reward | reference only, not a competitor |
 
 The best judge arm is the one with the higher validation churn AUROC. Both judge
-arms use `claude-opus-5-5` at temperature 0.
+arms use `gpt-5.5-2026-04-23` at temperature 0.
 
 ORM base model rationale: text-only causal LM with 41k context, Apache-2.0,
 works with `AutoModel` in `train_orm.py`. Pilot transcripts are about 1.4k-2.7k
@@ -96,4 +96,8 @@ between pilots and are frozen after the passing pilot.
 
 ## Deviations
 
-_(none yet)_
+1. **Judge and CSAT rater share a model family (OpenAI)**, against D14. Decided
+   by Adi on 2026-10-27 to avoid a second provider for now. Risk: the judge may
+   share the CSAT rater's biases, which favours the judge on CSAT and, through the
+   hazard's CSAT term, slightly on churn. Report this next to any judge result;
+   rerun with a non-OpenAI judge before any external claim.

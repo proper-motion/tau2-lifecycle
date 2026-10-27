@@ -142,8 +142,13 @@ def main(argv=None) -> None:
     )
     ap.add_argument("--seed", type=int, default=13)
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument(
+        "--allow-same-family",
+        action="store_true",
+        help="Accepted deviation from D14; must be listed in PREREGISTRATION.md",
+    )
     args = ap.parse_args(argv)
-    if family(args.model) == family(args.csat_model):
+    if family(args.model) == family(args.csat_model) and not args.allow_same_family:
         raise SystemExit(
             f"Judge {args.model} and CSAT rater {args.csat_model} are both "
             f"{family(args.model)}; D14 requires different families."

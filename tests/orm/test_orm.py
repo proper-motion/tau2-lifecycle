@@ -170,6 +170,25 @@ def test_judge_refuses_same_family_as_csat_rater(tmp_path):
                 str(tmp_path / "p.jsonl"),
             ]
         )
+    # the accepted deviation goes through the flag, then fails only on missing data
+    with pytest.raises(FileNotFoundError):
+        judge_baseline.main(
+            [
+                "--split",
+                str(tmp_path),
+                "--part",
+                "test",
+                "--arm",
+                "zero",
+                "--model",
+                "gpt-5.5",
+                "--csat-model",
+                "gpt-4.1-mini",
+                "--out",
+                str(tmp_path / "p.jsonl"),
+                "--allow-same-family",
+            ]
+        )
 
 
 def test_long_transcripts_keep_the_end():
