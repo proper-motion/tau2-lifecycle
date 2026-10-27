@@ -1,0 +1,5 @@
+# Extra dependencies for train_orm.py only (GPU box). Everything else uses the core install.
+torch>=2.4
+transformers>=4.46
+peft>=0.13
+accelerate>=1.0
