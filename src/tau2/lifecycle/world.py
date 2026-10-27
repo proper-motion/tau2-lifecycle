@@ -90,30 +90,38 @@ def branch_id(pop_id: str, variant: str) -> str:
 
 def append_events(conn: sqlite3.Connection, events: Iterable[dict]) -> None:
     """Write events in one transaction; an event_id already present is skipped."""
-    _append(conn, "events", "event_id", "type", events)
+    write(conn, events=events)
 
 
 def append_oracle(conn: sqlite3.Connection, rows: Iterable[dict]) -> None:
     """Write private simulator rows in one transaction; replays are no-ops."""
-    _append(conn, "oracle", "oracle_id", "kind", rows)
+    write(conn, oracle=rows)
 
 
-def _append(conn, table, id_col, kind_col, rows) -> None:
+def write(
+    conn: sqlite3.Connection, events: Iterable[dict] = (), oracle: Iterable[dict] = ()
+) -> None:
+    """Write public events and private oracle rows atomically (one transaction)."""
     with conn:
-        conn.executemany(
-            f"INSERT OR IGNORE INTO {table} ({id_col}, branch_id, virtual_day, {kind_col}, payload)"
-            " VALUES (?, ?, ?, ?, ?)",
-            [
-                (
-                    r[id_col],
-                    r["branch_id"],
-                    r["virtual_day"],
-                    r[kind_col],
-                    json.dumps(r.get("payload", {})),
-                )
-                for r in rows
-            ],
-        )
+        _insert(conn, "events", "event_id", "type", events)
+        _insert(conn, "oracle", "oracle_id", "kind", oracle)
+
+
+def _insert(conn, table, id_col, kind_col, rows) -> None:
+    conn.executemany(
+        f"INSERT OR IGNORE INTO {table} ({id_col}, branch_id, virtual_day, {kind_col}, payload)"
+        " VALUES (?, ?, ?, ?, ?)",
+        [
+            (
+                r[id_col],
+                r["branch_id"],
+                r["virtual_day"],
+                r[kind_col],
+                json.dumps(r.get("payload", {})),
+            )
+            for r in rows
+        ],
+    )
 
 
 # ---------------------------------------------------------------- customers
@@ -227,8 +235,7 @@ def register_customers(
                     "payload": c.traits,
                 }
             )
-    append_events(conn, events)
-    append_oracle(conn, oracle)
+    write(conn, events=events, oracle=oracle)
 
 
 # ---------------------------------------------------------------- state projection
