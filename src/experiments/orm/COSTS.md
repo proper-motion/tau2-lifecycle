@@ -20,6 +20,9 @@ downgrades. Pilot rate: 54 of 270 copies in 60 days (1.8 per population customer
 
 ## Size → cost (60-day horizon, same models)
 
+This table counts all churn events. The primary verdict now scores support calls
+only (deviation 5); use `RUNBOOK.md`'s size table, which is in those terms.
+
 | Test-split events | Customers | Conversations | API cost | Smallest ORM-vs-judge gap it can reliably show* |
 |---|---|---|---|---|
 | 50 | ~185 | ~4.4k | ~$600 | ~0.12 AUROC |

@@ -1,0 +1,27 @@
+# Full campaign for the ORM experiment. Set `customers` from RUNBOOK.md (Smoke 50 / Demo 250 / Solid 500 / Strong 1000)
+# and budget_usd to about 1.2x the RUNBOOK cost. Change `name` for every size so the config hash differs.
+# Run: doppler run -- uv run tau2 lifecycle run --config src/experiments/orm/configs/full.yaml --out runs/full
+# After: see RUNBOOK.md step 3.
+name: full-solid
+seed: 7
+customers: 500
+days: 60
+variants:
+  - {name: g41-f0, agent_llm: gpt-4.1-2025-04-14, failure_rate: 0.0}
+  - {name: g41-f10, agent_llm: gpt-4.1-2025-04-14, failure_rate: 0.1}
+  - {name: g41-f30, agent_llm: gpt-4.1-2025-04-14, failure_rate: 0.3}
+  - {name: g41mini-f0, agent_llm: gpt-4.1-mini-2025-04-14, failure_rate: 0.0}
+  - {name: g41mini-f10, agent_llm: gpt-4.1-mini-2025-04-14, failure_rate: 0.1}
+  - {name: g41mini-f30, agent_llm: gpt-4.1-mini-2025-04-14, failure_rate: 0.3}
+  - {name: g5-f0, agent_llm: gpt-5-2025-08-07, failure_rate: 0.0}
+  - {name: g5-f10, agent_llm: gpt-5-2025-08-07, failure_rate: 0.1}
+  - {name: g5-f30, agent_llm: gpt-5-2025-08-07, failure_rate: 0.3}
+user_llm: gpt-4.1-2025-04-14       # simulated customer, same for all variants
+csat_llm: gpt-4.1-mini-2025-04-14  # CSAT rater
+budget_usd: 1920.0                 # 1.2x RUNBOOK cost for 500 customers
+cost_bound_usd: 0.40               # reserved per conversation before each day (OV10); one gpt-5 call cost $0.255
+max_concurrency: 16
+max_steps: 100
+task_split: base
+max_infra_error_share: 0.5
+hazard: {}                         # HazardConfig defaults, unchanged from pilot 1 (frozen)
