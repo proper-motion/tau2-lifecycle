@@ -2,8 +2,8 @@
 
 Customer lifecycle simulator on top of τ²-bench telecom: persistent customers,
 an authored churn hazard, CSAT, KPIs and matched campaigns across agent variants.
-Design and decisions: `.plans/tau-lifecycle-orm.md` and
-`.plans/telecom-lifecycle-tools.md` in the author's workspace.
+Design and decisions: `docs/lifecycle/PLAN.md` and
+`docs/lifecycle/TOOLS_PLAN.md`.
 
 ## Secrets
 

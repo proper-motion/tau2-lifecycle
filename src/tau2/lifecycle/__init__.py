@@ -1,1 +1,1 @@
-"""Customer lifecycle simulator built on tau2 (see .plans/tau-lifecycle-orm.md)."""
+"""Customer lifecycle simulator built on tau2 (see docs/lifecycle/PLAN.md)."""

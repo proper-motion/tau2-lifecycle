@@ -11,7 +11,7 @@ Two entry points, both writing only through the ledger:
 
 Random draws are keyed by (population customer, day, purpose), not by branch,
 so all agent variants see the same draws until their histories diverge.
-See .plans/tau-lifecycle-orm.md (D5, D7) and .plans/telecom-lifecycle-tools.md.
+See docs/lifecycle/PLAN.md (D5, D7) and docs/lifecycle/TOOLS_PLAN.md.
 """
 
 import hashlib

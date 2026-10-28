@@ -4,7 +4,7 @@ Upstream `telecom` is untouched (D13), so published τ²-bench scores stay
 comparable. This domain adds three agent tools, a policy addendum, and
 generated "intent" tasks for the calls a customer makes because the lifecycle
 model decided they want to downgrade, upgrade or cancel.
-See .plans/telecom-lifecycle-tools.md (D2-D5, OV1-OV9).
+See docs/lifecycle/TOOLS_PLAN.md (D2-D5, OV1-OV9).
 """
 
 import hashlib
