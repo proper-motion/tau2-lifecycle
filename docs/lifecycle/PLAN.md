@@ -96,7 +96,7 @@ viewer around the existing agent, tools and task runner.
   - **D11 simplified:** each branch keeps the template IDs C1001/L1002 inside its own world. Only the name, DOB, email, account status and plan are overlaid through initialization_data.
   - **Applicability check:** adds a phone network re-scan after the gold actions. 108/114 base templates pass upstream; the other 6 (overdue-bill) are excluded.
   - **Known issue for Phase 2:** on the Basic plan only 23/114 templates are applicable, because the template line has 8.7 GB used against a 5 GB cap.
-- Tools (`.plans/telecom-lifecycle-tools.md`) done in 3f91b34: telecom_lifecycle domain.
+- Tools (`TOOLS_PLAN.md`) done in 3f91b34: telecom_lifecycle domain.
 - Phase 2 done in 47effbb:
   - `checkpoint.py`: records each call, classifies intent calls, CSAT (forced 1 when blocked, pending on rater failure), private direct hazard contribution, and a daily hazard with population-keyed draws.
   - `kpis.py`: window labels and cohort KPIs.

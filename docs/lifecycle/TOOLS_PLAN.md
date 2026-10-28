@@ -3,7 +3,7 @@
 
 # Plan: telecom lifecycle tools (plan change, cancel, billing cycle)
 
-Repo: proper-motion/tau2-lifecycle (fork of sierra-research/tau2-bench at ebf990b). Parent plan: `.plans/tau-lifecycle-orm.md`.
+Repo: proper-motion/tau2-lifecycle (fork of sierra-research/tau2-bench at ebf990b). Parent plan: `PLAN.md`.
 Status: REVIEWED 2026-10-27. L1-L4 built (commit on proper-motion/tau2-lifecycle main, 26 lifecycle tests + 231 upstream focused tests green). L5 done in 47effbb: the 4 OV7 end-to-end tests pass. Complete.
 
 ## Problem
