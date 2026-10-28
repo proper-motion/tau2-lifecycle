@@ -318,3 +318,21 @@ def test_pilot_gate_reports_every_check_on_an_offline_campaign(tmp_path):
     assert report["pass"] == all(c["pass"] for c in report["checks"].values())
     assert report["measured"]["conversations"] > 0
     json.dumps(report, default=float)
+
+
+def test_resolution_reader_parses_caches_and_feeds_the_gate(tmp_path):
+    from experiments.orm.pilot_gate import resolution_scores
+
+    rows = toy_rows(n_customers=3, per_customer=2)
+    calls = []
+
+    def fake(prompt):
+        calls.append(prompt)
+        return "Yes." if "Error" not in prompt else "no"
+
+    cache = tmp_path / "res.jsonl"
+    first = resolution_scores(rows, fake, cache)
+    assert set(first.values()) <= {0.0, 1.0} and len(first) == len(rows)
+    n = len(calls)
+    assert resolution_scores(rows, fake, cache) == first and len(calls) == n  # cached
+    assert resolution_scores(rows[:1], lambda p: 1 / 0, None)[rows[0]["row_id"]] == 0.5

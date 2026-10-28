@@ -106,3 +106,18 @@ between pilots and are frozen after the passing pilot.
    (77 turns), putting the ~800-call pilot at about $85-95. Under $75 the budget
    guard would stop around day 50, before late churn windows mature. Models
    unchanged. Re-pilots are capped at $110 each.
+3. **Pilot 1 accepted although the gate failed 3 of 4 checks**, against D15/D18.
+   Decided by Adi on 2026-10-28; no re-pilot. Pilot 1: 60 days, 716 calls,
+   $96.19. Results:
+   - churn 10.2% per branch-month vs a 10% ceiling
+   - 7-day repeat contact 41% vs a 30% ceiling
+   - transcript-count logistic AUROC 0.54, CI [0.40, 0.68]
+   - variant difference passed
+
+   Reasons: the two band misses are realism and cost settings, not threats to
+   the ORM-vs-judge comparison. The signal check measured the count features,
+   not the data. Churn follows task failure (53% vs 14%, AUROC 0.73, customer CI
+   [0.65, 0.80]), so transcripts that reveal resolution carry learnable signal.
+4. **Injected tool failures rotate over 8 realistic error messages** instead of
+   one fixed string, so a trained model cannot win by memorising a marker.
+   Applied before the full run.

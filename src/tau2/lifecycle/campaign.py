@@ -34,7 +34,7 @@ from tau2.lifecycle.checkpoint import (
     record_conversation,
 )
 from tau2.lifecycle.telecom_ext import (
-    INJECTED_ERROR,
+    INJECTED_ERRORS,
     make_intent_task,
     register_variant_domain,
 )
@@ -334,7 +334,7 @@ def _retry_pending_csat(conn, csat_fn: CsatFn, traits: dict) -> bool:
 def _record_injections(
     conn, branch, day, conv_id, outcome: ConversationOutcome
 ) -> None:
-    n = outcome.transcript.count(INJECTED_ERROR)
+    n = sum(outcome.transcript.count(e) for e in INJECTED_ERRORS)
     if n:
         write(
             conn,

@@ -148,7 +148,24 @@ class LifecycleTelecomTools(TelecomTools):
         }
 
 
-INJECTED_ERROR = "Error: Service temporarily unavailable. Please try again later."
+# Realistic outage messages, picked per tool call so no single string marks an
+# injected failure (a trained model could otherwise learn the string itself).
+INJECTED_ERRORS = (
+    "Error: Service temporarily unavailable. Please try again later.",
+    "Error: Request timed out after 30 seconds.",
+    "Error: Upstream billing system is not responding (HTTP 503).",
+    "Error: Internal server error. Reference ID: TLC-5021.",
+    "Error: Connection reset by peer.",
+    "Error: Account service is under maintenance. Try again in a few minutes.",
+    "Error: Gateway timeout while contacting the network management system.",
+    "Error: Too many requests. Please retry shortly.",
+)
+
+
+def injected_error(salt: str, tool_call_id: str) -> str:
+    """Deterministic per tool call id, so evaluator replay returns the same text."""
+    h = hashlib.sha256(f"{salt}:msg:{tool_call_id}".encode()).digest()
+    return INJECTED_ERRORS[h[0] % len(INJECTED_ERRORS)]
 
 
 def is_injected(salt: str, tool_call_id: str, failure_rate: float) -> bool:
@@ -173,7 +190,7 @@ class InjectingTelecomEnvironment(TelecomEnvironment):
         ):
             return ToolMessage(
                 id=message.id,
-                content=self.to_json_str(INJECTED_ERROR),
+                content=self.to_json_str(injected_error(self.salt, message.id)),
                 requestor=message.requestor,
                 role="tool",
                 error=True,

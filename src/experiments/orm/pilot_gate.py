@@ -4,15 +4,19 @@ Checks:
   cost and trace length    reported (they size the full run and pick the ORM model)
   churn_band               churn-or-downgrade per branch-month in [3%, 10%]
   repeat_band              7-day repeat contact on mature labels in [10%, 30%]
-  signal_observable        transcript-only logistic AUROC, 95% CI lower bound > 0.55
+  signal_observable        transcript-only logistic AUROC, 95% CI lower bound > 0.55;
+                           features = transcript counts + an LLM "was the issue
+                           resolved?" reading of the transcript (deviation 3)
   agent_matters            churn-or-downgrade rate, best minus worst variant, 95% CI excludes 0
 
-    python -m experiments.orm.pilot_gate --run runs/pilot --cutoff 60
+    python -m experiments.orm.pilot_gate --run runs/pilot --cutoff 60 --resolution-model gpt-4.1-mini
 """
 
 import argparse
 import json
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import Callable, Optional
 
 import numpy as np
 
@@ -23,9 +27,59 @@ from experiments.orm.common import auroc, cluster_bootstrap
 CHURN_BAND = (0.03, 0.10)
 REPEAT_BAND = (0.10, 0.30)
 SIGNAL_FLOOR = 0.55
+RESOLUTION_PROMPT = (
+    "Below is a customer-support transcript. Judging only from the transcript, was "
+    "the customer's problem fully resolved by the end of the call? Answer with one "
+    "word: yes or no.\n\n"
+)
 
 
-def gate(conn, cutoff_day: int, seed: int = 13) -> dict:
+def resolution_scores(
+    rows: list[dict], call: Callable[[str], str], cache: Optional[Path] = None
+) -> dict[str, float]:
+    """1.0 resolved, 0.0 not, 0.5 unreadable. Cached by row_id so reruns cost nothing."""
+    done = {}
+    if cache and cache.exists():
+        done = {
+            d["row_id"]: d["resolved"]
+            for d in map(json.loads, cache.read_text().splitlines())
+        }
+
+    def one(r):
+        try:
+            ans = call(RESOLUTION_PROMPT + r["transcript"][-12_000:]).strip().lower()
+        except Exception:
+            return r["row_id"], 0.5
+        return r["row_id"], 1.0 if ans.startswith("yes") else 0.0 if ans.startswith(
+            "no"
+        ) else 0.5
+
+    todo = [r for r in rows if r["row_id"] not in done]
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        new = dict(pool.map(one, todo))
+    if cache and new:
+        with cache.open("a") as f:
+            for rid, v in new.items():
+                f.write(json.dumps({"row_id": rid, "resolved": v}) + "\n")
+    return {**done, **new}
+
+
+def litellm_reader(model: str) -> Callable[[str], str]:
+    import litellm
+
+    def call(prompt: str) -> str:
+        resp = litellm.completion(
+            model=model, messages=[{"role": "user", "content": prompt}], temperature=0
+        )
+        return resp.choices[0].message.content
+
+    return call
+
+
+def gate(
+    conn, cutoff_day: int, seed: int = 13, resolved: Optional[dict[str, float]] = None
+) -> dict:
+    """`resolved` maps row_id -> transcript-only resolution reading (deviation 3)."""
     from tau2.lifecycle.export import private_eval_rows, training_rows
 
     rows = training_rows(conn, cutoff_day)
@@ -57,7 +111,15 @@ def gate(conn, cutoff_day: int, seed: int = 13) -> dict:
     # Signal check: 2-fold cross-fit by customer so no row is scored in-sample
     y = np.array([r["churn_or_downgrade_28d"] for r in rows], float)
     X = (
-        np.array([observable_features(r["transcript"]) for r in rows])
+        np.array(
+            [
+                np.r_[
+                    observable_features(r["transcript"]),
+                    [] if resolved is None else [resolved.get(r["row_id"], 0.5)],
+                ]
+                for r in rows
+            ]
+        )
         if rows
         else np.zeros((0, 6))
     )
@@ -132,10 +194,22 @@ def main(argv=None) -> dict:
     ap.add_argument("--run", type=Path, required=True, help="Campaign --out directory")
     ap.add_argument("--cutoff", type=int, required=True)
     ap.add_argument("--seed", type=int, default=13)
+    ap.add_argument(
+        "--resolution-model", help="LLM that reads transcripts for resolution"
+    )
     args = ap.parse_args(argv)
+    from tau2.lifecycle.export import training_rows
     from tau2.lifecycle.world import open_ledger
 
-    report = gate(open_ledger(args.run / "ledger.sqlite"), args.cutoff, args.seed)
+    conn = open_ledger(args.run / "ledger.sqlite")
+    resolved = None
+    if args.resolution_model:
+        resolved = resolution_scores(
+            training_rows(conn, args.cutoff),
+            litellm_reader(args.resolution_model),
+            cache=args.run / "gate_resolution.jsonl",
+        )
+    report = gate(conn, args.cutoff, args.seed, resolved)
     print(json.dumps(report, indent=2, default=float))
     print("PASS" if report["pass"] else "FAIL")
     return report

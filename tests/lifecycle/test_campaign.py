@@ -9,7 +9,7 @@ from tau2.domains.telecom.environment import get_tasks
 from tau2.lifecycle.campaign import CampaignConfig, Variant, run_campaign
 from tau2.lifecycle.checkpoint import HazardConfig, outcome_from_env
 from tau2.lifecycle.kpis import cohort_kpis
-from tau2.lifecycle.telecom_ext import INJECTED_ERROR, get_environment, is_injected
+from tau2.lifecycle.telecom_ext import INJECTED_ERRORS, get_environment, is_injected
 from tau2.lifecycle.world import open_ledger
 
 TEMPLATES = get_tasks("small")
@@ -171,7 +171,12 @@ def test_injected_failures_are_deterministic_and_change_nothing():
         requestor="assistant",
     )
     first, second = env.get_response(call), env.get_response(call)
-    assert first.error and INJECTED_ERROR in first.content and first == second
+    assert first.error and first == second
+    assert any(e in first.content for e in INJECTED_ERRORS)
+    used = {
+        env.get_response(call.model_copy(update={"id": h})).content for h in hits[:60]
+    }
+    assert len(used) >= 4  # many messages, not one marker string
     assert env.get_db_hash() == before
 
 
