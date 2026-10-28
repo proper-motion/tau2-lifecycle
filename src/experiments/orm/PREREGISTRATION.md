@@ -58,8 +58,10 @@ is an image-text model (`Qwen3_5ForConditionalGeneration`).
 
 ## Primary rule (R16)
 
-On the test split: Δ = AUROC(`orm`) − AUROC(best judge arm) for
-`churn_or_downgrade_28d`. 95% CI from a paired bootstrap over customers
+On the test split's **support calls** (no cancel or downgrade intent):
+Δ = AUROC(`orm`) − AUROC(best judge arm) for `churn_or_downgrade_28d`. The best
+judge arm is chosen on validation support calls. The same Δ on all calls is
+reported as secondary. 95% CI from a paired bootstrap over customers
 (2,000 resamples, seed 13).
 
 - CI lower bound > 0 → **ORM wins**
@@ -121,3 +123,9 @@ between pilots and are frozen after the passing pilot.
 4. **Injected tool failures rotate over 8 realistic error messages** instead of
    one fixed string, so a trained model cannot win by memorising a marker.
    Applied before the full run.
+5. **Primary verdict scored on support calls only** (all calls secondary). Decided
+   by Adi on 2026-10-28 before the full run. In pilot 1, cancel/downgrade calls
+   were 12% of calls but 41% of churn labels (69% churn vs 23% for support calls):
+   the customer announces the outcome, so both predictors score them easily and
+   they shrink the measured gap. The call type comes from the private file and
+   is used only to select rows for scoring.

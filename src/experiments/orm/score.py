@@ -1,8 +1,10 @@
 """Score the ORM against the LLM-judge arms and the baselines (R16, D16, D17).
 
-Primary rule (preregistered): on the test split, AUROC(ORM) minus AUROC(best
-judge arm, chosen on validation) for churn_or_downgrade_28d, with a paired
-bootstrap over customers. CI lower bound > 0: ORM wins. Upper bound < 0: judge
+Primary rule (preregistered): on the test split's support calls (calls a
+customer started because of a problem, not to cancel or change plan), AUROC(ORM)
+minus AUROC(best judge arm, chosen on validation support calls) for
+churn_or_downgrade_28d, with a paired bootstrap over customers. All calls are
+reported as secondary. CI lower bound > 0: ORM wins. Upper bound < 0: judge
 wins. Otherwise inconclusive. Everything else is reported, never decisive.
 
     python -m experiments.orm.score --split runs/x/orm --private runs/x/export/private/eval_private.jsonl \
@@ -103,6 +105,11 @@ def primary(rows, orm_preds, judge_preds, seed) -> dict:
     }
 
 
+def support_only(rows: list[dict], private: dict[str, dict]) -> list[dict]:
+    """Calls with no cancel/downgrade intent (the call type is private, scoring only)."""
+    return [r for r in rows if private.get(r["row_id"], {}).get("intent") is None]
+
+
 def best_judge_on_val(val_rows, val_preds: dict[str, list[dict]]) -> str:
     y = np.array([r["churn_or_downgrade_28d"] for r in val_rows], float)
     scores = {
@@ -126,7 +133,8 @@ def run(
     private = {r["row_id"]: r for r in read_jsonl(private_path)}
     load = lambda d: {arm: read_jsonl(p) for arm, p in d.items()}  # noqa: E731
     preds, val_preds = load(preds), load(val_preds)
-    best = best_judge_on_val(val, val_preds)
+    best = best_judge_on_val(support_only(val, private), val_preds)
+    support = support_only(test, private)
     arms = {
         **preds,
         "observable_logistic": observable_predictions(train, test),
@@ -135,10 +143,16 @@ def run(
     }
     report = {
         "primary": {
+            "scope": "support calls",
+            "best_judge_arm": best,
+            **primary(support, preds["orm"], preds[best], seed),
+        },
+        "secondary_all_calls": {
             "best_judge_arm": best,
             **primary(test, preds["orm"], preds[best], seed),
         },
-        "in_distribution": arm_table(test, arms, private, seed),
+        "in_distribution_support": arm_table(support, arms, private, seed),
+        "in_distribution_all": arm_table(test, arms, private, seed),
     }
     if heldout is not None:
         ho = read_jsonl(heldout / "test.jsonl")

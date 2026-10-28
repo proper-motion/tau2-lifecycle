@@ -268,7 +268,8 @@ def test_r16_verdict(tmp_path, orm_quality, expected):
     )
     assert report["primary"]["best_judge_arm"] == "judge_few"  # higher val AUROC
     assert report["primary"]["verdict"] == expected
-    table = report["in_distribution"]
+    assert report["primary"]["scope"] == "support calls"
+    table = report["in_distribution_all"]
     assert {
         "orm",
         "judge_few",
@@ -336,3 +337,14 @@ def test_resolution_reader_parses_caches_and_feeds_the_gate(tmp_path):
     n = len(calls)
     assert resolution_scores(rows, fake, cache) == first and len(calls) == n  # cached
     assert resolution_scores(rows[:1], lambda p: 1 / 0, None)[rows[0]["row_id"]] == 0.5
+
+
+def test_primary_excludes_cancel_and_downgrade_calls():
+    rows = toy_rows(n_customers=10, per_customer=2)
+    private = {
+        r["row_id"]: {"intent": "cancel" if i % 4 == 0 else None}
+        for i, r in enumerate(rows)
+    }
+    kept = score.support_only(rows, private)
+    assert len(kept) == len(rows) - len(rows[::4])
+    assert all(private[r["row_id"]]["intent"] is None for r in kept)
